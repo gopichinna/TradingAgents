@@ -37,6 +37,7 @@
 - [2026-09] **TradingAgents v0.5.1** released with a package layout organised by what each module holds (import paths moved), optional Jev screening of social posts, GPT-6 Sol and Luna as the default models, and fixes to run isolation and SEC EDGAR statements.
 
 Full release notes are in [CHANGELOG.md](CHANGELOG.md).
+For a complete guide to the web application UI and features, see [USER_GUIDE.md](USER_GUIDE.md).
 
 <details>
 <summary>Earlier news</summary>
@@ -396,7 +397,71 @@ config["temperature"] = 0.0
 
 What does not vary anymore: the analyzed company identity is resolved deterministically from the ticker before any agent runs, and the market analyst grounds exact price and indicator claims in a verified data snapshot. Earlier reports of "different companies" or fabricated price levels across runs are addressed by these two mechanisms.
 
-Backtest results are not guaranteed to match any published figure. Returns depend on the model, the temperature, the date range, data quality, and the sampling above. Treat the framework as a research scaffold for studying multi-agent analysis, not as a strategy with a fixed, replicable return.
+## Research Desk: Technical Charts, Swing Signals & Backtester
+
+The Research Desk application combines multi-agent dialectical deliberation with server-side technical analysis, multi-timeframe swing trading signals, and a zero-lookahead backtest engine.
+
+### 1. Multi-Timeframe Swing Trading Signals
+
+The signal engine computes indicator states across Daily (`D`), Weekly (`W`), and Monthly (`M`) timeframes and outputs deterministic trade setups:
+
+- **Higher-Timeframe Filter**: Weekly bar close > Weekly 30-period SMA **or** Daily close > Daily 200 SMA (bullish macro structure).
+- **Pullback Condition**: Daily close within 1.5% of the 21-period EMA or 50-period SMA, following prior trading above the moving average in the last 5 bars.
+- **Entry Trigger**: Daily RSI(14) crosses up through 40 **or** MACD(12, 26, 9) histogram turns positive.
+- **Volatility Sanity**: ADX(14) > 18 (ensures active trend momentum rather than low-volume consolidation).
+- **Exit Rules** (first condition hit terminates the position):
+  - Stop loss: Entry price minus $2 \times \text{ATR}(14)$.
+  - Profit target: 2R ($2 \times \text{Risk}$).
+  - Trailing stop: Bar close below the 21-period EMA (after a minimum 3-day hold).
+  - Overbought reversal: RSI(14) exceeds 70 and then crosses downward.
+  - Time stop: Position reaches maximum hold duration (default 15 days).
+  - Higher-timeframe weekly trend breakdown.
+
+### 2. Backtest Engine Rules & Assumptions
+
+The backtest engine (`tradingagents.backtest_engine`) enforces realistic quantitative simulation standards:
+
+- **Split & Dividend Adjusted**: All price series use corporate-action-adjusted historical data.
+- **Zero Lookahead Bias**: Signal evaluation strictly uses information available up to bar close ($T$). Fills are executed at the subsequent bar's Open price ($T+1$) plus slippage.
+- **Warm-Up Buffer**: A minimum 200-bar warm-up buffer is required to prime moving averages and volatility indicators before trade generation begins.
+- **Completed Bar Resampling**: Weekly bars end on Friday (`W-FRI`) and monthly bars end on month-end (`ME`). Higher-timeframe indicators utilize strictly completed prior bars to prevent intra-bar lookahead.
+- **Frictional Costs**: Configurable commissions (e.g. $1.00/trade) and slippage in basis points (e.g. 5 bps) applied on both entries and exits.
+- **Partitioning**: Automated 70% In-Sample / 30% Out-of-Sample split to test strategy robustness against parameter overfitting.
+- **Statistical Validity**: Flags runs with fewer than 30 executed trades with a prominent sample size warning.
+
+### 4. Paper Trading Desk (/positions)
+
+The Paper Trading module provides a simulated forward execution sandbox to test swing trading strategies against live signals without risking real capital:
+
+- **Virtual USD Account**: Starting balance of $10,000 with long-only cash accounting (no margin, no leverage, no negative cash). Resetting an account automatically archives the run's trade history and equity curve rather than deleting it.
+- **Signal-to-Trade Integration**:
+  - The multi-timeframe signal panel on `/charts` features a **"Paper trade this signal"** CTA button when a combined swing BUY setup occurs.
+  - Automatically prefills the order ticket with symbol, suggested stop ($2 \times \text{ATR}$), take profit (2R), maximum holding days, and risk-adjusted sizing.
+  - Every trade records a `signal_tag` tracking whether the trade followed an algorithmic signal or was placed manually.
+  - Open positions and executed trades display as interactive price lines and markers directly on the `/charts` candlestick pane.
+- **Simulated Fill Rules**:
+  - **Market Orders**: Filled at the latest available quote plus configured slippage (default 5 bps).
+  - **Limit Orders**: Filled at the limit price when market price trades through the limit level (no artificial price improvement).
+  - **Bracket OCO Exits**: Stop-loss and profit target orders are linked as One-Cancels-the-Other (OCO). When one is triggered, the counterpart is automatically voided.
+  - **Conservative Same-Bar Resolution**: If both stop-loss and take-profit thresholds are breached within the same bar's High-Low range, the stop-loss is conservatively assumed to have hit first.
+  - **Gap-Through Fills**: If price gaps open beyond the stop-loss level, the fill executes at the session Open price rather than the stop level.
+  - **Time Stops & Trailing Exits**: Evaluated against the daily close and filled at the subsequent session's open.
+- **Comparative Diagnostics**:
+  - **Signal vs. Manual Breakdown**: Compares win rates, average R-multiples, and cumulative P/L between signal-triggered trades and manual trades.
+  - **Backtest vs. Paper Forward Walk**: Side-by-side comparison of backtested strategy expectancy against real paper forward-testing results.
+
+### 5. API Endpoints (`/api/v1`)
+
+- `GET /api/v1/instruments/{symbol}/candles?tf=D|W|M&range=1Y` — Resampled OHLCV bars, overlay indicators, sub-panes, and swing markers.
+- `GET /api/v1/instruments/{symbol}/signals?tf=D|W|M` — Multi-timeframe trend states, quantified scores (0–100), and combined swing setup.
+- `POST /api/v1/backtests` & `GET /api/v1/backtests/{id}` — Quantitative deterministic backtesting with In-Sample/Out-of-Sample evaluation.
+- `GET /api/v1/paper/account` & `POST /api/v1/paper/account/reset` — Virtual account status and archive-reset.
+- `GET /api/v1/paper/positions` & `PATCH /api/v1/paper/positions/{id}` — Live marked positions and bracket exit adjustments.
+- `POST /api/v1/paper/orders` & `DELETE /api/v1/paper/orders/{id}` — Market/limit order placement and pending order cancellation.
+- `POST /api/v1/paper/positions/{id}/close` — Market close (supports partial or complete share quantities).
+- `GET /api/v1/paper/trades` — Filterable, paginated trade history with CSV export.
+- `GET /api/v1/paper/stats` — Win rate, profit factor, expectancy, and Signal vs. Manual comparative metrics.
+- `GET /api/v1/paper/equity?range=1M` — Equity curve points vs. SPY benchmark.
 
 ## Contributing
 

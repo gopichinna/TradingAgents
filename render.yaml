@@ -1,0 +1,32 @@
+services:
+  # Python FastAPI Backend
+  - type: web
+    name: tradingagents-backend
+    runtime: python
+    buildCommand: "pip install --upgrade pip && pip install -e ."
+    startCommand: "uvicorn server:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: TRADINGAGENTS_LLM_PROVIDER
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+
+  # Next.js Frontend
+  - type: web
+    name: tradingagents-frontend
+    runtime: node
+    rootDir: web
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start"
+    envVars:
+      - key: NODE_VERSION
+        value: 20.0.0
+      - key: BACKEND_API_URL
+        fromService:
+          type: web
+          name: tradingagents-backend
+          property: host

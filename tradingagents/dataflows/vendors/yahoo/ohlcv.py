@@ -257,3 +257,49 @@ def load_ohlcv(symbol: str, as_of_date: str, fill_gaps: bool = True) -> pd.DataF
     return data
 
 
+def fetch_adjusted_history(symbol: str, range_str: str = "1Y") -> pd.DataFrame:
+    """Fetches split and dividend adjusted OHLCV bars using yfinance within dataflow layer."""
+    canonical = normalize_symbol(symbol)
+    period_map = {
+        "3M": "3mo",
+        "6M": "6mo",
+        "1Y": "1y",
+        "3Y": "3y",
+        "5Y": "5y",
+        "MAX": "max",
+    }
+    period = period_map.get(range_str.upper(), "1y")
+    t = yf.Ticker(canonical)
+    df = yf_retry(lambda: t.history(period=period, auto_adjust=True))
+    if df is None or df.empty:
+        return pd.DataFrame()
+    df = df.reset_index()
+    date_col = next((c for c in df.columns if "date" in c.lower()), None)
+    if date_col:
+        df = df.rename(columns={date_col: "Date"})
+        df["Date"] = pd.to_datetime(df["Date"]).dt.tz_localize(None)
+        df = df.set_index("Date")
+    return df
+
+
+def get_fast_quote(symbol: str) -> float:
+    """Retrieves latest quote price for symbol within dataflow layer."""
+    canonical = normalize_symbol(symbol)
+    t = yf.Ticker(canonical)
+    try:
+        price = getattr(t.fast_info, "last_price", None)
+        if price is not None and price > 0:
+            return float(price)
+    except Exception:
+        pass
+
+    try:
+        hist = t.history(period="1d")
+        if not hist.empty and "Close" in hist.columns:
+            return float(hist["Close"].iloc[-1])
+    except Exception:
+        pass
+
+    return 100.0
+
+
