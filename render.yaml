@@ -24,7 +24,7 @@ services:
     startCommand: "npm run start"
     envVars:
       - key: NODE_VERSION
-        value: 20.0.0
+        value: 20.18.0
       - key: BACKEND_API_URL
         fromService:
           type: web
