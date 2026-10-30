@@ -1037,6 +1037,7 @@ def execute_run_task(run_id: str, req: CreateRunRequest):
         cfg["quick_think_llm"] = os.getenv("TRADINGAGENTS_QUICK_THINK_LLM", "gemini-3.5-flash-lite")
         cfg["max_debate_rounds"] = req.debate_rounds
         cfg["output_language"] = "English"
+        cfg["llm_max_retries"] = int(os.getenv("TRADINGAGENTS_LLM_MAX_RETRIES", "10"))
 
         portfolio = StrategyPortfolioContext(
             cash=100000.0,
@@ -1147,7 +1148,7 @@ def execute_run_task(run_id: str, req: CreateRunRequest):
                 mode="live",
                 last_close=last_c,
                 token_cost=0.005,
-                report_path=report_path,
+                report_path=str(report_path) if report_path else None,
             )
         except Exception as sig_err:
             logger.warning(f"Failed to record signal in reliability ledger: {sig_err}")
