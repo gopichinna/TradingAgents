@@ -51,8 +51,10 @@ export default function DecisionsPage() {
 
     return runs.map((run) => {
       const sig = signalMap.get(run.run_id);
+      const effectiveRating = (run.rating && run.rating !== 'HOLD') ? run.rating : (sig?.rating || run.rating || 'HOLD');
       return {
         ...run,
+        rating: effectiveRating,
         signal_id: run.signal_id || sig?.signal_id,
         as_of_date: sig?.as_of_date,
         entry_price: sig?.entry_price || sig?.last_close,
@@ -73,7 +75,15 @@ export default function DecisionsPage() {
   const filteredRuns = useMemo(() => {
     return enrichedRuns.filter((r) => {
       const matchSymbol = filterSymbol.trim() === '' || r.symbol?.toLowerCase().includes(filterSymbol.trim().toLowerCase());
-      const matchRating = filterRating === 'ALL' || r.rating?.toUpperCase() === filterRating.toUpperCase();
+      const rRating = (r.rating || '').toUpperCase();
+      let matchRating = true;
+      if (filterRating === 'BUY') {
+        matchRating = rRating.includes('BUY') || rRating.includes('OVERWEIGHT');
+      } else if (filterRating === 'HOLD') {
+        matchRating = rRating.includes('HOLD') || rRating.includes('NEUTRAL');
+      } else if (filterRating === 'SELL') {
+        matchRating = rRating.includes('SELL') || rRating.includes('UNDERWEIGHT');
+      }
       return matchSymbol && matchRating;
     });
   }, [enrichedRuns, filterSymbol, filterRating]);
@@ -81,9 +91,18 @@ export default function DecisionsPage() {
   // Summary stats
   const stats = useMemo(() => {
     const total = enrichedRuns.length;
-    const buys = enrichedRuns.filter((r) => ['STRONG BUY', 'BUY', 'OVERWEIGHT'].includes(r.rating?.toUpperCase())).length;
-    const holds = enrichedRuns.filter((r) => ['HOLD', 'NEUTRAL'].includes(r.rating?.toUpperCase())).length;
-    const sells = enrichedRuns.filter((r) => ['SELL', 'UNDERWEIGHT', 'STRONG SELL'].includes(r.rating?.toUpperCase())).length;
+    const buys = enrichedRuns.filter((r) => {
+      const rt = (r.rating || '').toUpperCase();
+      return rt.includes('BUY') || rt.includes('OVERWEIGHT');
+    }).length;
+    const holds = enrichedRuns.filter((r) => {
+      const rt = (r.rating || '').toUpperCase();
+      return rt.includes('HOLD') || rt.includes('NEUTRAL');
+    }).length;
+    const sells = enrichedRuns.filter((r) => {
+      const rt = (r.rating || '').toUpperCase();
+      return rt.includes('SELL') || rt.includes('UNDERWEIGHT');
+    }).length;
     const uniqueSymbols = new Set(enrichedRuns.map((r) => r.symbol)).size;
     return { total, buys, holds, sells, uniqueSymbols };
   }, [enrichedRuns]);

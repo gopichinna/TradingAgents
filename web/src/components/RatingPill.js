@@ -3,24 +3,24 @@
 import React from 'react';
 
 export default function RatingPill({ rating = 'HOLD', size = 'normal' }) {
-  const norm = rating ? rating.toUpperCase() : 'HOLD';
+  const raw = (rating || 'HOLD').trim();
+  const norm = raw.toUpperCase();
 
   let bg = 'var(--amber-bg)';
   let color = 'var(--amber)';
   let border = 'var(--amber-border)';
-  let label = 'Hold';
 
   if (norm.includes('OVERWEIGHT') || norm.includes('BUY')) {
     bg = 'var(--gain-bg)';
     color = 'var(--gain)';
     border = 'var(--gain-border)';
-    label = 'Overweight';
   } else if (norm.includes('UNDERWEIGHT') || norm.includes('SELL')) {
     bg = 'var(--loss-bg)';
     color = 'var(--loss)';
     border = 'var(--loss-border)';
-    label = 'Underweight';
   }
+
+  const label = raw;
 
   const isLarge = size === 'large';
 

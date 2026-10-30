@@ -50,6 +50,7 @@ from tradingagents.signals import (
     resample_bars,
 )
 from tradingagents.backtest_engine import run_quantitative_backtest
+from tradingagents.agents.rating import extract_rating
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("server")
@@ -434,12 +435,20 @@ class StrategyPortfolioContext(PortfolioContext):
         )
 
 def normalize_rating(raw_rating: str) -> str:
+    if not raw_rating:
+        return "HOLD"
     r = raw_rating.strip().upper()
-    if any(k in r for k in ["STRONG BUY", "BUY", "OVERWEIGHT"]):
+    if any(k in r for k in ["STRONG BUY", "BUY"]):
+        return "BUY"
+    if "OVERWEIGHT" in r:
         return "OVERWEIGHT"
-    if any(k in r for k in ["STRONG SELL", "SELL", "UNDERWEIGHT"]):
+    if any(k in r for k in ["STRONG SELL", "SELL"]):
+        return "SELL"
+    if "UNDERWEIGHT" in r:
         return "UNDERWEIGHT"
-    return "HOLD"
+    if "HOLD" in r:
+        return "HOLD"
+    return r
 
 def parse_bullet_points(text: str, max_points: int = 3) -> List[str]:
     if not text:
@@ -1069,9 +1078,11 @@ def execute_run_task(run_id: str, req: CreateRunRequest):
                     md_text = f.read()
 
         # Parse verdict rating and rationale
-        rating_match = re.search(r"### Portfolio Manager.*?(\*\*Rating\*\*:|- Rating:)\s*(.*?)(?=\n|\Z)", md_text, re.DOTALL)
-        raw_rating = rating_match.group(2).strip() if rating_match else "Hold"
-        normalized_rating_val = normalize_rating(raw_rating)
+        extracted_r = extract_rating(md_text)
+        if not extracted_r:
+            rating_match = re.search(r"### Portfolio Manager.*?(\*\*Rating\*\*:|- Rating:)\s*(.*?)(?=\n|\Z)", md_text, re.DOTALL)
+            extracted_r = rating_match.group(2).strip() if rating_match else "Hold"
+        normalized_rating_val = normalize_rating(extracted_r)
 
         rationale_match = re.search(r"\*\*Executive Summary\*\*:\s*(.*?)(?=\n\*\*|\n###|\Z)", md_text, re.DOTALL)
         rationale_text = rationale_match.group(1).strip() if rationale_match else (
@@ -1292,9 +1303,22 @@ def get_run_detail(run_id: str):
     parts = run_id.split("_")
     symbol = parts[0] if parts else "UNKNOWN"
 
-    rating_match = re.search(r"### Portfolio Manager.*?(\*\*Rating\*\*:|- Rating:)\s*(.*?)(?=\n|\Z)", content, re.DOTALL)
-    raw_rating = rating_match.group(2).strip() if rating_match else "Hold"
-    normalized_rating_val = normalize_rating(raw_rating)
+    dec_file = os.path.join(report_path, "5_portfolio", "decision.md")
+    extracted_r = None
+    if os.path.exists(dec_file):
+        try:
+            with open(dec_file, "r", errors="ignore") as f:
+                extracted_r = extract_rating(f.read())
+        except Exception:
+            pass
+
+    if not extracted_r and content:
+        extracted_r = extract_rating(content)
+
+    if not extracted_r:
+        rating_match = re.search(r"### Portfolio Manager.*?(\*\*Rating\*\*:|- Rating:)\s*(.*?)(?=\n|\Z)", content, re.DOTALL)
+        extracted_r = rating_match.group(2).strip() if rating_match else "Hold"
+    normalized_rating_val = normalize_rating(extracted_r)
 
     rationale_match = re.search(r"\*\*Executive Summary\*\*:\s*(.*?)(?=\n\*\*|\n###|\Z)", content, re.DOTALL)
     rationale_text = rationale_match.group(1).strip() if rationale_match else (
@@ -1364,15 +1388,28 @@ def get_runs_archive(
         sym = parts[0] if parts else rid
         
         md_file = os.path.join(d, "complete_report.md")
+        dec_file = os.path.join(d, "5_portfolio", "decision.md")
         rating = "HOLD"
         strategy = "swing"
+
+        # Check decision.md first (cleanest and fastest)
+        if os.path.exists(dec_file):
+            try:
+                with open(dec_file, "r", errors="ignore") as f:
+                    r_cand = extract_rating(f.read())
+                    if r_cand:
+                        rating = normalize_rating(r_cand)
+            except Exception:
+                pass
+
         if os.path.exists(md_file):
             try:
-                with open(md_file, "r") as f:
-                    txt = f.read(1500)
-                    m = re.search(r"Rating\*\*?:\s*([A-Za-z\s]+)", txt)
-                    if m:
-                        rating = normalize_rating(m.group(1))
+                with open(md_file, "r", errors="ignore") as f:
+                    txt = f.read(4000)
+                    if rating == "HOLD":
+                        r_cand = extract_rating(txt)
+                        if r_cand:
+                            rating = normalize_rating(r_cand)
                     if "Day Trading" in txt:
                         strategy = "day"
                     elif "Position Trading" in txt:
@@ -1400,6 +1437,8 @@ def get_runs_archive(
     # 2. From in-memory store
     for rid, run in runs_store.items():
         res = run.get("result")
+        if not res and rid in items_map:
+            continue
         rating = res.get("rating", "HOLD") if res else "HOLD"
         strat = run.get("params", {}).get("strategy", "swing")
         items_map[rid] = ArchiveRunItem(
@@ -1425,6 +1464,8 @@ def get_runs_archive(
             sig = sig_by_run.get(it.run_id)
             if sig:
                 it.signal_id = sig.get("signal_id")
+                if (not it.rating or it.rating == "HOLD") and sig.get("rating"):
+                    it.rating = normalize_rating(sig.get("rating"))
                 outcome = sig.get("outcome")
                 if outcome:
                     it.forward_return_10d = outcome.get("forward_return_10d")
