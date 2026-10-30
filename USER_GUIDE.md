@@ -10,11 +10,12 @@ Welcome to the **TradingAgents** multi-agent stock research desk. This guide det
 3. [Setup Page (`/`): Running Multi-Agent Research](#3-setup-page--running-multi-agent-research)
 4. [Charts Page (`/charts`): Technical Analysis & Swing Signals](#4-charts-page-charts-technical-analysis--swing-signals)
 5. [Debate Arena (`/debate`): AI Deliberation & Verdict](#5-debate-arena-debate-ai-deliberation--verdict)
-6. [Positions Page (`/positions`): Paper Trading Portfolio](#6-positions-page-positions-paper-trading-portfolio)
-7. [Backtest Page (`/backtest`): Quantitative Strategy Verification](#7-backtest-page-backtest-quantitative-strategy-verification)
-8. [Reliability Page (`/reliability`): Statistical Audit & Edge Scorecard](#8-reliability-page-reliability-statistical-audit--edge-scorecard)
-9. [Archive Page (`/archive`): Historical Run Database](#9-archive-page-archive-historical-run-database)
-10. [Pro Tips & Recommended Workflows](#10-pro-tips--recommended-workflows)
+6. [Decision Ledger (`/decision`): Researched Stocks & Verdicts](#6-decision-ledger-decision-researched-stocks--verdicts)
+7. [Positions Page (`/positions`): Paper Trading Portfolio](#7-positions-page-positions-paper-trading-portfolio)
+8. [Backtest Page (`/backtest`): Quantitative Strategy Verification](#8-backtest-page-backtest-quantitative-strategy-verification)
+9. [Reliability Page (`/reliability`): Statistical Audit & Edge Scorecard](#9-reliability-page-reliability-statistical-audit--edge-scorecard)
+10. [Archive Page (`/archive`): Historical Run Database](#10-archive-page-archive-historical-run-database)
+11. [Pro Tips & Recommended Workflows](#11-pro-tips--recommended-workflows)
 
 ---
 
@@ -70,6 +71,7 @@ The left navigation bar is accessible from any view:
 - **Charts (`/charts`)**: TradingView candlestick chart with overlays, indicators, and swing signals.
 - **Positions (`/positions`)**: Virtual $10,000 paper trading desk with automatic bracket sizing.
 - **Debate (`/debate`)**: Full transcript and breakdown of Bull vs. Bear deliberations.
+- **Decision (`/decision`)**: Central research ledger listing all analyzed stocks, research timestamps, verdicts, entry benchmarks, forward returns, and judge rationales.
 - **Backtest (`/backtest`)**: Quantitative in-sample and out-of-sample rule backtesting.
 - **Reliability (`/reliability`)**: Statistical scorecard, forward outcome tracker, and replay engine.
 - **Archive (`/archive`)**: Historical log of past research runs.
@@ -157,7 +159,36 @@ The **Debate** tab reveals the inner workings of the multi-agent decision proces
 
 ---
 
-## 6. Positions Page (`/positions`): Paper Trading Portfolio
+## 6. Decision Ledger (`/decision`): Researched Stocks & Verdicts
+
+The **Decision** tab serves as the high-level research hub across all assets that have undergone multi-agent scrutiny. It provides an immediate audit trail of what was analyzed, when it occurred, what the final consensus was, and how the call performed.
+
+### 6.1 Top Metrics Bar
+- **Total Researched**: Grand count of all completed research iterations.
+- **Bullish Verdicts**: Count of strong buy and buy convictions.
+- **Neutral / Wait**: Count of hold calls awaiting further catalyst clarity.
+- **Bearish Verdicts**: Count of sell and strong sell risk warnings.
+
+### 6.2 Filter & Typeahead Controls
+- **Symbol Search**: Instant client-side filter to look up a specific ticker (e.g. `TSLA`, `MSFT`, `ORCL`).
+- **Verdict Filter Pills**: Quick toggle between `ALL`, `BUY`, `HOLD`, and `SELL`.
+
+### 6.3 Comprehensive Data Table & Expandable Synthesis
+Every researched stock record contains:
+- **Symbol & Run ID**: Ticker with exact backend execution ID.
+- **Researched Date & Time**: Clean formatted timestamp of the research run (or simulated historical as-of date).
+- **Verdict**: Distinct color-coded badge (`BUY`, `HOLD`, `SELL`, etc.).
+- **Benchmark Price**: Reference equity market price at the moment of the decision.
+- **Strategy & Analysts**: Strategy profile (e.g., `swing`) and analyst teams involved.
+- **Forward Outcome**: Forward return percentage and bracket resolution (e.g., `+2.45% (10d)` or `HIT_TARGET`).
+- **One-Click Actions**:
+  - `Chart`: Jumps straight to the TradingView chart for the symbol (`/charts?symbol=...`).
+  - `Debate →`: Navigates directly into the full multi-round debate arena for that specific run (`/debate/[run_id]`).
+- **Expandable Accordion**: Clicking any row unfolds the Portfolio Manager's synthesis report along with bulleted Bull catalysts and Bear risks directly on the page without losing your place.
+
+---
+
+## 7. Positions Page (`/positions`): Paper Trading Portfolio
 
 A simulated sandbox with an initial **$10,000 USD virtual account** to test execution against agent and technical signals.
 
@@ -187,41 +218,41 @@ This lets you instantly determine whether you or the AI are performing better.
 
 ---
 
-## 7. Backtest Page (`/backtest`): Quantitative Strategy Verification
+## 8. Backtest Page (`/backtest`): Quantitative Strategy Verification
 
 The **Backtest** module stress-tests quantitative swing strategies on historical daily data before deploying capital.
 
-### 7.1 Configuration Parameters
+### 8.1 Configuration Parameters
 - **Lookback Period**: 1 Year, 2 Years, 5 Years.
 - **In-Sample (IS) vs. Out-of-Sample (OOS) Split**: E.g., 70% IS training / 30% OOS forward test to guard against curve-fitting and over-optimization.
 - **ATR Multiplier**: Stop-loss and profit target distance (e.g., 1.5x, 2.0x, 3.0x ATR).
 - **Max Hold Days**: Maximum duration before a trade is closed if neither stop nor target is reached.
 - **Benchmark**: Comparison against SPY buy-and-hold over the exact same period.
 
-### 7.2 Key Metrics to Check
+### 8.2 Key Metrics to Check
 - **CAGR**: Compound Annual Growth Rate.
 - **Sharpe Ratio**: Risk-adjusted return (values > 1.0 indicate strong risk-adjusted returns; > 1.5 is excellent).
 - **Sortino Ratio**: Downside-risk-adjusted return (ignores upside volatility).
 - **Max Drawdown**: Peak-to-trough decline (look for strategies with drawdown lower than SPY).
 - **Win Rate & Profit Factor**: Percentage of winning trades and ratio of gross profits to gross losses (> 1.5 is healthy).
 
-### 7.3 Parameter Sensitivity Sweep (Heatmap)
-- A 2D grid tests combinations of **ATR Multipliers** (1.5x, 2.0x, 2.5x) against **Max Hold Days** (5d, 10d, 20d).
+### 8.3 Parameter Sensitivity Sweep (Heatmap)
+- **ATR Multipliers** (1.5x, 2.0x, 2.5x) against **Max Hold Days** (5d, 10d, 20d).
 - Look for **broad plateaus of profitability** rather than isolated peaks to ensure strategy robustness.
 
 ---
 
-## 8. Reliability Page (`/reliability`): Statistical Audit & Edge Scorecard
+## 9. Reliability Page (`/reliability`): Statistical Audit & Edge Scorecard
 
 The **Reliability** module answers the single most critical question in AI finance:
 > *"Does the multi-agent system actually produce statistical alpha, or is it just generating plausible-sounding noise?"*
 
-### 8.1 The Append-Only Immutable Signal Ledger
+### 9.1 The Append-Only Immutable Signal Ledger
 - Every live research run writes a record to `agent_signals` in SQLite.
 - Database-level triggers (`BEFORE UPDATE`, `BEFORE DELETE`) prevent tampering or rewriting past signals.
 - Every signal records: `symbol`, `as_of_date`, `rating`, `conviction`, `target_price`, `analysts_json`, and `llm_models_json`.
 
-### 8.2 Daily Outcome Tracker
+### 9.2 Daily Outcome Tracker
 Forward outcomes are automatically tracked:
 - **Entry Price**: Evaluated at the **next market session open** with **5 bps slippage** (avoiding execution lookahead bias).
 - **Forward Returns**: Measured at **1-Day**, **5-Day**, **10-Day**, and **20-Day** horizons.
@@ -231,7 +262,7 @@ Forward outcomes are automatically tracked:
   - **MAE (Maximum Adverse Excursion)**: Worst drawdown experienced while holding.
 - **Bracket Outcome**: Records whether the 2x ATR target hit first (`HIT_TARGET`), the stop-loss hit first (`STOPPED_OUT`), or the position timed out (`EXPIRED`).
 
-### 8.3 The 5-Check Scorecard
+### 9.3 The 5-Check Scorecard
 The scorecard at the top of the Reliability page evaluates 5 rigorous criteria:
 
 1. **Sample Size Gate**:
@@ -247,12 +278,12 @@ The scorecard at the top of the Reliability page evaluates 5 rigorous criteria:
 5. **Rerun Stability Check**:
    - Tests model determinism by executing 3 to 5 independent runs of the same symbol and date. A signal passes if $\ge 70\%$ of runs reach the same verdict.
 
-### 8.4 Rating Monotonicity Check
+### 9.4 Rating Monotonicity Check
 Inspect the **Rating Buckets Table**:
 $$\text{Strong Buy} > \text{Buy} > \text{Hold} > \text{Sell} > \text{Strong Sell}$$
 A reliable system must exhibit monotonicity: higher ratings must produce higher average forward returns than lower ratings.
 
-### 8.5 Historical Replay Backfill
+### 9.5 Historical Replay Backfill
 Need to backfill data for past dates? Click **"⚡ Launch Replay"**:
 - **Point-in-Time Analyst Selection**: Only **Market (PIT)** data is free of lookahead bias. Fundamental and News data should be used cautiously for historical backfills due to restatements and archiving gaps.
 - **Cost & Token Estimation**: The system calculates sampled weekly dates, estimated LLM calls, and USD cost against your spend cap before you confirm.
@@ -261,7 +292,7 @@ Need to backfill data for past dates? Click **"⚡ Launch Replay"**:
 
 ---
 
-## 9. Archive Page (`/archive`): Historical Run Database
+## 10. Archive Page (`/archive`): Historical Run Database
 
 The **Archive** maintains a complete chronological journal of every research run executed on your desk:
 - Filter by ticker, rating, or date range.
@@ -269,7 +300,7 @@ The **Archive** maintains a complete chronological journal of every research run
 
 ---
 
-## 10. Pro Tips & Recommended Workflows
+## 11. Pro Tips & Recommended Workflows
 
 ### The Daily Swing Trading Workflow
 1. **Morning Scan**:
